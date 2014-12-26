@@ -1,0 +1,4 @@
+#!/bin/sh
+python3 clean.py
+cd src
+javac *.java
