@@ -99,7 +99,11 @@ public class Main
                 out.close();
                 System.out.println(".out output file successfully generated.  ");
                 return;
-
+            }
+            else
+            {
+                System.out.println("Param Invalid.  ");
+                return;
             }
         }
         CtypeClassCreatorConsole cccc = new CtypeClassCreatorConsole();

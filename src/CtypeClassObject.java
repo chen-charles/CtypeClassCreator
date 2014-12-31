@@ -29,7 +29,7 @@ public class CtypeClassObject implements Serializable
 	public ArrayList<String> dependency = new ArrayList<String>();
 	public ArrayList<Variable> var = new ArrayList<Variable>();
 	public ArrayList<Method> method = new ArrayList<Method>();
-	public static final String HFormat = "#ifndef __%s__\n#define __%s__\n#include \"stdlib.h\"\n\n%s\n\n#endif\n";
+	public static final String HFormat = "#ifndef __%s__\n#define __%s__\n#include <stdlib.h>\n\n%s\n\n#endif\n";
 	public static final String CFormat = "#include \"%s\"\n%s\n";
 	public static final String VFormat = "typedef struct %s\n{\n\t%s\n};\n\n";
 
@@ -86,11 +86,11 @@ public class CtypeClassObject implements Serializable
 		}
 
 		StringBuilder sb = new StringBuilder();
-		sb.append("\n\n//Variables");
-		for (Variable i: this.var)
-		{
-			sb.append(String.format("\n%s* %s_%s(%s* this);\n", i.type, name, i.name, name+"_VAR"));
-		}
+//		sb.append("\n\n//Variables");
+//		for (Variable i: this.var)
+//		{
+//			sb.append(String.format("\n%s* %s_%s(%s* this);\n", i.type, name, i.name, name+"_VAR"));
+//		}
 		sb.append("\n\n//Methods");
 		sb.append(String.format("\n%s_VAR* %s();\n", name, name));
 		return String.format(HFormat, name, name, dep.toString() + joinVar(this.var) + joinH(this.method, "\n")
@@ -101,13 +101,13 @@ public class CtypeClassObject implements Serializable
 	public String generateC()
 	{
 		StringBuilder sb = new StringBuilder();
-		sb.append("\n\n//Variables");
-		for (int i=0; i<this.var.size(); i++)
-		{
-			Variable j = this.var.get(i);
-			String s = String.format("(%s*)(&(this->%s))", j.type, j.name);
-			sb.append(String.format("\n%s* %s_%s(%s* this){return %s;}\n", j.type, name, j.name, name+"_VAR", s));
-		}
+//		sb.append("\n\n//Variables");
+//		for (int i=0; i<this.var.size(); i++)
+//		{
+//			Variable j = this.var.get(i);
+//			String s = String.format("(%s*)(&(this->%s))", j.type, j.name);
+//			sb.append(String.format("\n%s* %s_%s(%s* this){return %s;}\n", j.type, name, j.name, name+"_VAR", s));
+//		}
 		sb.append("\n\n//Methods");
 		sb.append(String.format("\n%s_VAR* %s(){return (%s_VAR*)malloc(sizeof(%s_VAR));}\n", name, name, name, name));
 		return String.format(CFormat, name+".h", sb.toString() + joinC(this.method, "\n"));
