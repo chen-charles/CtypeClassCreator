@@ -1,21 +1,32 @@
 import java.io.*;
 import java.util.*;
+import java.security.*;
+import java.math.*;
 
 interface CtypeObject
 {
 	public String generateH(String classname);
 	public String generateC(String classname);
 	public String toString();
+	public String md5(String s) throws NoSuchAlgorithmException;
 }
 
-abstract class _CtypeObject implements CtypeObject
+abstract class _CtypeObject implements CtypeObject, Serializable
 {
 	private static int ID = 0;
 	public final int uID = ID++;
+	public String md5(String s) throws NoSuchAlgorithmException
+	{
+		MessageDigest m = MessageDigest.getInstance("MD5");
+		m.update(s.getBytes(), 0, s.length());
+		BigInteger i = new BigInteger(1,m.digest());
+		return String.format("%1$032x", i);
+	}
 }
 
 public class CtypeClassObject implements Serializable
 {
+	public ArrayList<String> dependency = new ArrayList<String>();
 	public ArrayList<Variable> var = new ArrayList<Variable>();
 	public ArrayList<Method> method = new ArrayList<Method>();
 	public static final String HFormat = "#ifndef __%s__\n#define __%s__\n#include \"stdlib.h\"\n\n%s\n\n#endif\n";
@@ -68,6 +79,12 @@ public class CtypeClassObject implements Serializable
 
 	public String generateH()
 	{
+		StringBuilder dep = new StringBuilder();
+		for (String i: this.dependency)
+		{
+			dep.append(String.format("#include\t\"%s\"\n", i));
+		}
+
 		StringBuilder sb = new StringBuilder();
 		sb.append("\n\n//Variables");
 		for (Variable i: this.var)
@@ -76,7 +93,8 @@ public class CtypeClassObject implements Serializable
 		}
 		sb.append("\n\n//Methods");
 		sb.append(String.format("\n%s_VAR* %s();\n", name, name));
-		return String.format(HFormat, name, name, joinVar(this.var) + joinH(this.method, "\n") + sb.toString());
+		return String.format(HFormat, name, name, dep.toString() + joinVar(this.var) + joinH(this.method, "\n")
+				+ sb.toString());
 
 	}
 
@@ -87,7 +105,7 @@ public class CtypeClassObject implements Serializable
 		for (int i=0; i<this.var.size(); i++)
 		{
 			Variable j = this.var.get(i);
-			String s = String.format("(%s*)(&(this[%d]))", j.type, i);
+			String s = String.format("(%s*)(&(this->%s))", j.type, j.name);
 			sb.append(String.format("\n%s* %s_%s(%s* this){return %s;}\n", j.type, name, j.name, name+"_VAR", s));
 		}
 		sb.append("\n\n//Methods");

@@ -6,13 +6,12 @@ EVERYTHING IS PUBLIC
 KEEP THE CLASS BUFFER FILES IN CASE YOU WANT TO DERIVE FROM IT OR EDIT IT
 
 OBJECTS ARE POINTERS, CALL CALLERS WITH THE POINTER AND THE PARAMS TO CALL A METHOD
-ACCESSES TO VARIABLES ARE PROVIDED WITH POINTERS
 MALLOC WILL BE CALLED DUE TO THE CREATION OF VARIABLE SPACE
 CLASSNAME WILL BE USED TO INIT THE VARIABLE SPACE (RETURNING A *THIS POINTER)
 USERS MUST EXPLICITILY CALL THE INITIALIZERS
 
 Calling to a method: CLASSNAME_METHODNAME(*THIS, ARG1, ...)
-Fetching a variable *POINTER*: CLASSNAME_VARIABLE(*THIS)
+Fetching a variable: THIS->VARNAME
 
 Additional String Replacer is provided.
 This replacer only serves simple purposes.  It will not try to keep track of anything else unless being asked to do so.
@@ -27,8 +26,7 @@ Syntax:
 ...
 ...
 POINTERNAME.METHODNAME(ARG1, ...)
-POINTERNAME.VARIABLE        //the return type is a pointer as well
-*POINTERNAME.VARIABLE       //value of the return type
+POINTERNAME->VARIABLE
 ...
 ...
  */
@@ -38,62 +36,70 @@ import java.io.*;
 
 public class Main
 {
-    public static void main(String[] args)
+    public static void main(String[] args) throws Exception
     {
         if (args.length != 0)
         {
-            if (args[0].equals("-r") && args.length > 2)    //java Main -r CLASSNAME FILENAME
+            if (args[0].equals("-c") && args.length > 2)    //script-ed input   //java Main -c SCRIPTNAME
+            {
+                CtypeClassCreatorConsole cccc = new CtypeClassCreatorConsole();
+                DataInputStream _bufin = new DataInputStream(new BufferedInputStream(new FileInputStream(args[1])));
+                Scanner sc = new Scanner(_bufin);
+                while (sc.hasNextLine())
+                {
+                    cccc.exec(sc.nextLine());
+                    System.out.println(cccc.getLastResult());
+                }
+                cccc.exit();
+                return;
+            }
+            else if (args[0].equals("-r") && args.length > 2)    //java Main -r CLASSNAME FILENAME
             {
                 CtypeClassObject cco = CtypeClassCreatorConsole.inClass(args[1]);
                 // figure out String s that needs attention
                 String op = String.format("// %s 141225 ", cco.name);
                 String POINTERNAME = null;
                 HashMap<String, String> dict = new HashMap<String, String>();
-                try
-                {
-                    OutputStreamWriter out = new OutputStreamWriter(new DataOutputStream(new BufferedOutputStream(
-                            new FileOutputStream(args[2]+".out"))));
-                    Scanner in = new Scanner(new BufferedInputStream(new FileInputStream(args[2])));
 
-                    while (in.hasNextLine())
+                OutputStreamWriter out = new OutputStreamWriter(new DataOutputStream(new BufferedOutputStream(
+                        new FileOutputStream(args[2]+".out"))));
+                Scanner in = new Scanner(new BufferedInputStream(new FileInputStream(args[2])));
+
+                while (in.hasNextLine())
+                {
+                    String line = in.nextLine();
+                    if (line.contains(op) && line.indexOf(op) == 0)
                     {
-                        String line = in.nextLine();
-                        if (line.contains(op) && line.indexOf(op) == 0)
+                        POINTERNAME = line.replaceFirst(op, "").trim();
+                        if (POINTERNAME.contains(" "))
                         {
-                            POINTERNAME = line.replaceFirst(op, "").trim();
-                            if (POINTERNAME.contains(" "))
-                            {
-                                System.out.println("Invalid Descriptor is Detected.  Exit.  ");
-                                return;
-                            }
-                            dict.clear();   //everytime a new desc is detected, re-generate replacing information
-                            for (Variable i: cco.var)
-                            {
-                                dict.put(String.format("%s.%s", POINTERNAME, i.name),
-                                        String.format("(%s_%s(%s))", cco.name, i.name, POINTERNAME));
-                            }
-                            for (Method i: cco.method)
-                            {
-                                dict.put(String.format("%s.%s(", POINTERNAME, i.name),
-                                        String.format("%s_%s(%s, ", cco.name, i.name, POINTERNAME));
-                            }
+                            System.out.println("Invalid Descriptor is Detected.  Exit.  ");
+                            return;
                         }
-
-                        if (POINTERNAME != null)
-                            for (String i: dict.keySet())
-                            {
-                                line = line.replaceAll(i, dict.get(i));
-                            }
-                        out.write(line);
+                        dict.clear();   //everytime a new desc is detected, re-generate replacing information
+                        for (Variable i: cco.var)
+                        {
+                            dict.put(String.format("%s.%s", POINTERNAME, i.name),
+                                    String.format("(%s->%s)", POINTERNAME, i.name));
+                        }
+                        for (Method i: cco.method)
+                        {
+                            dict.put(String.format("%s.%s(", POINTERNAME, i.name),
+                                    String.format("%s_%s(%s, ", cco.name, i.name, POINTERNAME));
+                        }
                     }
-                    out.close();
-                    System.out.println(".out output file successfully generated.  ");
+
+                    if (POINTERNAME != null)
+                        for (String i: dict.keySet())
+                        {
+                            line = line.replace(i, dict.get(i));
+                        }
+                    out.write(line+"\n");
                 }
-                catch(Exception err)
-                {
-                    System.out.println(err.toString());
-                    return;
-                }
+                out.close();
+                System.out.println(".out output file successfully generated.  ");
+                return;
+
             }
         }
         CtypeClassCreatorConsole cccc = new CtypeClassCreatorConsole();
@@ -244,7 +250,6 @@ class CtypeClassCreatorConsole extends Console
             outC.write(cco.generateC());
             bufout.writeObject(cco);
 
-
             outH.close();
             outC.close();
             bufout.close();
@@ -263,51 +268,33 @@ class CtypeClassCreatorConsole extends Console
         return CMD_SUCCESS;
     }
 
-    public static CtypeClassObject inClass(String classname) //it is your responsibility to check if it is a null ptr
+    public static CtypeClassObject inClass(String classname) throws Exception
     {
         ObjectInputStream bufin = null;
         CtypeClassObject cco = null;
-        try
-        {
-            bufin = new ObjectInputStream(new BufferedInputStream(new FileInputStream(classname + ".buffer")));
-            cco = (CtypeClassObject)bufin.readObject();
-        }
-        catch(Exception err)
-        {
-
-        }
+        bufin = new ObjectInputStream(new BufferedInputStream(new FileInputStream(classname + ".buffer")));
+        cco = (CtypeClassObject)bufin.readObject();
         return cco;
     }
 
-    public int in(String param)
+    public int derive(String param)
+    {
+        cco.dependency.add(param);
+        return CMD_SUCCESS;
+    }
+
+    public int in(String param) throws Exception
     {
         //in filename
         String[] args = param.split(" ");
-        inClass(args[0]);
-        ObjectInputStream bufin = null;
-
-        try
-        {
-            bufin = new ObjectInputStream(new BufferedInputStream(new FileInputStream(args[0] + ".buffer")));
-            cco = (CtypeClassObject)bufin.readObject();
-        }
-        catch(ClassNotFoundException err)
-        {
-            Exception(err.toString());
-            return CMD_RETURN_VOID;
-        }
-        catch(FileNotFoundException err)
-        {
-            Exception(err.toString());
-            return CMD_RETURN_VOID;
-        }
-        catch(IOException err)
-        {
-            Exception(err.toString());
-            return CMD_RETURN_VOID;
-        }
+        this.cco = inClass(args[0]);
 
         return CMD_SUCCESS;
+    }
+
+    public boolean exec(String s)
+    {
+        return inputHandler(s);
     }
 
     protected int inputHandler(String cmd, String param)
@@ -333,6 +320,9 @@ class CtypeClassCreatorConsole extends Console
             } else if (cmd.equals("print"))
             {
                 result = print(param);
+            } else if (cmd.equals("derive"))
+            {
+                result = derive(param);
             } else if (cmd.equals("display"))
             {
                 System.out.println("VARIABLES DECLARED: ");
@@ -348,6 +338,8 @@ class CtypeClassCreatorConsole extends Console
             {
                 result = CMD_SUCCESS;
                 System.out.println("in/out [classname] - BufferIO");
+                System.out.println("derive [headername(with path is ok)] - Derive from an existing header");
+
                 System.out.println("print [method/var] [name] - display specified method/var info");
                 System.out.println("display - display all method/var info");
 

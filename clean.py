@@ -17,6 +17,8 @@ for name, fullname, root in walk(path, "c"):
 	os.system("rm -f %s"%fullname)
 for name, fullname, root in walk(path, "h"):
 	os.system("rm -f %s"%fullname)
+for name, fullname, root in walk(path, "buffer"):
+	os.system("rm -f %s"%fullname)
 for name, fullname, root in walk(path, "class"):
 	os.system("rm -f %s"%fullname)
 
